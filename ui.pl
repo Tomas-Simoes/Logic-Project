@@ -1,7 +1,11 @@
-:- module(ui, [main_menu/0, game_ui/1, update_game_ui/2, finished_game/2]).
+:- module(ui, [
+    main_menu/0, 
+    game_ui/1, update_game_ui/2, finished_game/2,
+    solver_ui/2]).
 
 :-use_module(library(ansi_term)).
 :- use_module(wordle_game).
+:- use_module(wordle_solver).
 :- use_module(utils).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,7 +27,8 @@ handle_choice(start) :-
     start_game.
 
 handle_choice(solver) :-
-    writeln("Starting Wordle Solver...").
+    tty_clear,
+    start_solver.
 
 handle_choice(options) :-
     writeln("Showing options...").
@@ -102,6 +107,28 @@ handle_finished_choice(exit) :-
     halt.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Solver Interface
+
+solver_ui(EntropyList, NextWord) :-
+    tty_clear,
+
+    create_entropy_strings(EntropyList, EntropyStrings),
+    LeftColumn = ["Welcome to today's word!","_  _  _  _  _"],
+    RightColumn = ["Solver best words"|EntropyStrings],
+
+    print_to_columns(LeftColumn, RightColumn),
+    
+    write("Choose your word: "),
+    read_from_ui(Feedback, [], Input_Word),
+    string_lower(Input_Word, Lower_Word),
+    string_chars(Lower_Word, NextWord).
+
+create_entropy_strings([], []).
+create_entropy_strings([[Word, Entropy]|RestEntropy], [String|RestStrings]) :-
+    format(string(String), "~w~t~8|~2f%%", [Word, Entropy]),
+    create_entropy_strings(RestEntropy, RestStrings).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utils
 % write_feedbacks/1:    outputs the _ _ _ _ _ with correct letters and colors  
 %                       expects a feedback of type [Word, [letters_feedback]]
@@ -109,6 +136,9 @@ handle_finished_choice(exit) :-
 % read_from_ui/3:       reads character by character and handles specific cases
 %                       expects feedback (same format as above), an array of chars (with the user input)
 %                       returns Final_Input as a string
+
+% print_to_columns/2:   prints two lists of strings side by side as columns
+%                       aligns the right column starting at column 30
 
 write_feedbacks([]).
 write_feedbacks([[[],[]]|RestFeedbacks]) :-
@@ -148,3 +178,13 @@ read_from_ui(Feedbacks, Chars, Final_Input) :-
         read_from_ui(Feedbacks, New_Chars, Final_Input)
     ).
     
+print_to_columns([], []).
+print_to_columns([], [HR|TR]) :-
+    format("~|~t~30+ ~w~n", [HR]),
+    print_to_columns([], TR).
+print_to_columns([HL|TL], []) :-
+    format("~w~n", [HL]),
+    print_to_columns(TL, []).
+print_to_columns([HL|TL], [HR|TR]) :-
+    format("~|~w~t~30+ ~w~n", [HL, HR]),
+    print_to_columns(TL, TR).
